@@ -203,6 +203,8 @@ const ELEM    = ["木","火","土","金","水"];                    /* 生：i->
 const BR_ELEM = [4,2,0,0,2,1,1,2,3,3,2,4];                     /* 子水丑土寅卯木辰土巳午火未土申酉金戌土亥水 */
 const SIXGOD  = ["青龍","朱雀","勾陳","螣蛇","白虎","玄武"];
 const KIN     = ["父母","兄弟","子孫","妻財","官鬼"];
+const LIUHE   = {0:1,1:0,2:11,11:2,3:10,10:3,4:9,9:4,5:8,8:5,6:7,7:6}; /* 地支六合 */
+const MU      = {0:7,1:10,3:1,4:4,2:4};  /* 墓庫：木未 火戌 金丑 水辰 土辰 */
 const TRI_NAME= {7:"乾",3:"兌",5:"離",1:"震",6:"巽",2:"坎",4:"艮",0:"坤"}; /* bit0=初爻 */
 const KW = {"乾乾":[1,"乾為天"],"坤坤":[2,"坤為地"],"坎震":[3,"水雷屯"],"艮坎":[4,"山水蒙"],
 "坎乾":[5,"水天需"],"乾坎":[6,"天水訟"],"坤坎":[7,"地水師"],"坎坤":[8,"水地比"],
@@ -348,7 +350,7 @@ function fourPillars(dt, opts){
   return {
     year:{s:yStem,b:yBranch}, month:{s:mStem,b:mBranch},
     day:{s:dayIdx%10,b:dayIdx%12}, hour:{s:hStem,b:hBranch},
-    dayIdx, kong, monthBreak:(mBranch+6)%12,
+    dayIdx, jdn, kong, monthBreak:(mBranch+6)%12,
     trueSolarMins:corr, steps,
     text:`${STEMS[yStem]}${BRANCH[yBranch]}年 ${STEMS[mStem]}${BRANCH[mBranch]}月 ${STEMS[dayIdx%10]}${BRANCH[dayIdx%12]}日 ${STEMS[hStem]}${BRANCH[hBranch]}時 旬空${BRANCH[kong[0]]}${BRANCH[kong[1]]}`
   };
@@ -446,7 +448,22 @@ function decorate(castRes, pillars){
   }
   /* 六沖六合（逐對計算，不查表）；本卦之卦皆算，供卦變格局判讀 */
   const bh=chongHeOf(ben), zh=chongHeOf(zhi);
+  /* 內外卦反吟伏吟（卜筮正宗：以卦宮納支論） */
+  const nzb=branchesOf(zhi).brs;
+  const seg3=(lo)=>{const idx=lo?[0,1,2]:[3,4,5];
+    const same=idx.every(i=>nb.brs[i]===nzb[i]);
+    const chong=idx.every(i=>(nb.brs[i]+6)%12===nzb[i]);
+    const anyMove=idx.some(i=>(moved>>i)&1);
+    return {fuYin:same&&anyMove, fanYin:chong&&anyMove};};
+  const innerFY=seg3(true), outerFY=seg3(false);
+  const fuYin=innerFY.fuYin||outerFY.fuYin;
+  const fanYin=innerFY.fanYin||outerFY.fanYin;
+  const shiYangLine=(ben>>(shi-1))&1;
+  const bodyBranch=((shiYangLine?0:6)+(shi-1))%12;
+  const bodyPositions=lines.map((L,i)=>L.branch===bodyBranch?i+1:0).filter(Boolean);
   return {ben,zhi,moved,lines,hidden,
+    body:{branch:bodyBranch,positions:bodyPositions},
+    fuYin, fanYin,
     palace:TRI_NAME[pal.palaceTri]+"宮", palaceElem:ELEM[palE],
     shi,ying, name:HEXNAME[ben], num:HEXNUM[ben],
     zhiName:HEXNAME[zhi], zhiNum:HEXNUM[zhi],
@@ -454,9 +471,8 @@ function decorate(castRes, pillars){
 }
 function chongHeOf(hex){
   const b=branchesOf(hex).brs;
-  const HE={0:1,1:0,2:11,11:2,3:10,10:3,4:9,9:4,5:8,8:5,6:7,7:6};
   const ps=[[b[0],b[3]],[b[1],b[4]],[b[2],b[5]]];
-  return {chong:ps.every(([x,y])=>(x+6)%12===y), he:ps.every(([x,y])=>HE[x]===y)};
+  return {chong:ps.every(([x,y])=>(x+6)%12===y), he:ps.every(([x,y])=>LIUHE[x]===y)};
 }
 
 /* ================= 判斷 L3 ================= */
@@ -539,7 +555,10 @@ function judge(dec, pillars, category, opts){
       if(yong.huaJin)   score+=add("化進","用神化進神",0.8,"化進增力");
       if(yong.huaTui)   score+=add("化退","用神化退神",-0.8,"化退減力");
       if(kong.has(yong.change.branch)) score+=add("化空","用神動化空亡",-0.8,"變後落空");
+      if(yong.change.branch===MU[yong.elem]&&yong.elem!==2) score+=add("化墓","用神動化入墓庫，閉而不出",-0.8,"化入墓庫");
     }
+    if(!yong.moving&&dB===MU[yong.elem]&&yong.elem!==2&&!(ws==="旺"||ws==="相"))
+      score+=add("日墓","用神衰而入日墓",-0.5,"衰入日墓");
   }else{
     const [ws,wv]=wangShuai(tE,mB);
     score+=add("伏神",`用神伏藏，${ws}，力減半`,wv*0.5-1,"用神隱伏無力");
@@ -547,20 +566,39 @@ function judge(dec, pillars, category, opts){
     if(sheng(flyE,tE)) score+=add("飛神","飛來生伏得長生",0.8,"伏得生助");
     if(ke(flyE,tE))    score+=add("飛神","飛來剋伏受制",-1,"伏受壓制");
   }
-  /* 他爻動而生剋用神；原神忌神 */
+  /* 獨發獨靜（斷易天機／黃金策：神兆機於動） */
+  const mvN=(dec.moved.toString(2).match(/1/g)||[]).length;
+  if(mvN===1) add("獨發","一爻獨發，神兆機於動，其力專一",0,"一爻獨發");
+  if(mvN===5){
+    add("獨靜","五動一靜，獨靜之爻為事之樞",0,"一爻獨靜");
+    if(yong&&!yong.moving) score+=add("獨靜","用神獨靜，得安於眾動之中",0.3,"用神獨靜得安");
+  }
+  /* 他爻動而生剋用神；原神忌神（獨發力專×1.5） */
+  const solo=mvN===1?1.5:1;
   for(const L of dec.lines){
     if(L===yong) continue;
     const act=L.moving||L.anDong;
     if(!act) continue;
-    const eff=L.change&&L.huiKe?0.5:1;    /* 動而被回頭剋者力減 */
+    const eff=(L.change&&L.huiKe?0.5:1)*solo;    /* 動而被回頭剋者力減 */
     if(sheng(L.elem,tE)) score+=add("原神動",`第${L.pos}爻${L.kin}動而生用神`,1.5*eff,"助力發動");
     else if(ke(L.elem,tE)) score+=add("忌神動",`第${L.pos}爻${L.kin}動而剋用神`,-1.5*eff,"剋星發動");
+  }
+  /* 反吟伏吟（卦宮層級，增刪卜易） */
+  if(dec.fuYin) score+=add("伏吟","卦逢伏吟，呻吟遲滯，事體反覆難進",-1,"伏吟遲滯");
+  if(dec.fanYin) score+=add("反吟","卦逢反吟，往復顛倒，先後不一",-1,"反吟反覆");
+  /* 卦身（卜筮正宗／易冒） */
+  if(dec.body){
+    if(!dec.body.positions.length)
+      score+=add("卦身",`卦身${BRANCH[dec.body.branch]}不上卦，事體未明、來意多虛`,-0.2,"事體未明");
+    else{
+      const onYong=yong&&dec.body.positions.includes(yong.pos);
+      score+=add("卦身",`卦身${BRANCH[dec.body.branch]}在第${dec.body.positions.join("、")}爻${onYong?"，且臨用神，事體切實":"，事體有據"}`,onYong?0.3:0.2,onYong?"卦身臨用神":"卦身上卦");
+    }
   }
   /* 卦體 */
   if(dec.liuchong) score+=add("六沖","卦逢六沖，事多散動難聚",-0.8,"六沖局散");
   if(dec.liuhe)   score+=add("六合","卦逢六合，事易成聚",0.8,"六合局聚");
   /* 卦變格局（有動方論） */
-  const mvN=(dec.moved.toString(2).match(/1/g)||[]).length;
   if(mvN>0){
     if(dec.liuhe&&dec.zhiLiuchong) score+=add("合處逢沖","本卦六合化之卦六沖，先聚後散",-1,"合處逢沖");
     if(dec.liuchong&&dec.zhiLiuhe) score+=add("沖中逢合","本卦六沖化之卦六合，先難後成",1,"沖中逢合");
@@ -569,7 +607,49 @@ function judge(dec, pillars, category, opts){
   const grade=score>=4?"大吉":score>=2?"吉":score>=0.8?"小吉":score>-0.8?"平"
              :score>-2?"小凶":score>-4?"凶":"大凶";
   return {score:+score.toFixed(2), grade, steps, yongKin,
-          yongPos:yong?yong.pos:null, fu:!!fu};
+          yong:yong||null, yongPos:yong?yong.pos:null, fu:!!fu};
+}
+
+/* ================= 應期推算（增刪卜易・卜筮正宗） ================= */
+/* 傳統派鐵律：靜逢值逢沖、動逢合逢值、空逢沖逢實、墓逢沖破、旺看沖衰看值。 */
+function yingQi(dec,pillars,j){
+  if(!j.yong) return {rule:"用神伏藏或不上卦，應期難定，俟其出現方可期",cands:[]};
+  const y=dec.lines[j.yongPos-1];
+  if(!y) return {rule:"用神無定爻，應期不定",cands:[]};
+  const kong=new Set(pillars.kong), mB=pillars.month.b, dB=pillars.day.b;
+  const [ws]=wangShuai(y.elem,mB);
+  const wang=(ws==="旺"||ws==="相");
+  const chong=(y.branch+6)%12, he=LIUHE[y.branch];
+  const B=b=>BRANCH[b];
+  const cands=[];
+  const push=(when,why)=>cands.push({when,why});
+  // 空亡:出空之日或沖空之日
+  if(kong.has(y.branch)){
+    push(B(y.branch)+"日（出空）", "用神旬空，填實出空之日應");
+    push(B(chong)+"日（沖空）", "空逢沖則實，沖空之日亦應");
+  }
+  // 入墓:逢沖破墓之日
+  else if((y.moving&&y.change&&y.change.branch===MU[y.elem]&&y.elem!==2)||(!y.moving&&dB===MU[y.elem]&&y.elem!==2)){
+    const mu=MU[y.elem];
+    push(B((mu+6)%12)+"日（沖墓）", "用神入墓，逢沖開墓之日應");
+  }
+  // 動爻:逢合逢值(旺者逢沖)
+  else if(y.moving){
+    if(wang){ push(B(chong)+"日", "用神旺動，逢沖之日應（旺極而動）"); }
+    push(B(he)+"日", "動逢合住，合處之日應");
+    push(B(y.branch)+"日", "動爻逢值（本氣臨日）之日應");
+  }
+  // 安靜:旺逢沖、衰逢值/生
+  else {
+    if(wang){ push(B(chong)+"日", "用神旺靜，逢沖則動，沖日應"); }
+    else { push(B(y.branch)+"日", "用神衰靜，逢值填實之日應");
+           push(B((y.elem*2+2)%12 /*生*/)+"月", "衰者待生扶之時方應"); }
+  }
+  // 主軸判語
+  const axis = kong.has(y.branch)?"空逢沖、填實而應"
+    : y.moving?(wang?"旺動逢沖而應":"動逢合值而應")
+    : (wang?"旺靜逢沖而應":"衰靜逢值而應");
+  return {rule:axis, cands, near:cands[0]?cands[0].when:"未定"};
 }
 
 /* ================= 白話生成 narrate ================= */
@@ -579,7 +659,7 @@ const YL_GLOSS={"元吉":"大順","大吉":"大順","无不利":"無往不利","
   "吉":"順遂","凶":"不利","厲":"有危須慎","吝":"窒礙難行","悔":"行而有憾"};
 const YL_POL={"元吉":1,"大吉":1,"无不利":1,"悔亡":1,"无咎":1,"利貞":1,"利涉大川":1,"貞吉":1,"亨":1,"吉":1,
   "貞凶":-1,"凶":-1,"厲":-1,"吝":-1,"悔":-1};
-function narrate(dec,j,zx,category,reads){
+function narrate(dec,j,zx,category,reads,pillars){
   const mv=[]; for(let i=0;i<6;i++) if((dec.moved>>i)&1) mv.push(i+1);
   /* 進程：只留變機本體 */
   let process;
@@ -638,12 +718,16 @@ function narrate(dec,j,zx,category,reads){
     +`象數面：評「${j.grade}」，${strength}${plusPart}${minusPart}。`
     +(prim?`義理面：主讀「${prim.title}」，意謂${glosses.length?glosses.join("、"):"以象取義"}。`:"")
     +integ+kongNote+chainNote;
+  let yq=null;
+  if(pillars&&j.yong){ yq=yingQi(dec,pillars,j);
+    if(yq.near&&yq.near!=="未定") advice+=`應期：${yq.rule}，近應${yq.near}。`; }
   if(advice.length>500) advice=advice.slice(0,499)+"。";
+  const yqHtml=(yq&&yq.near&&yq.near!=="未定")?`應期：${yq.rule}，近應<span class="w-ji">${yq.near}</span>。`:"";
   const adviceHtml=`此課問<span class="cat">${category}</span>，局由「${dec.name}」${mv.length?`趨「${dec.zhiName}」`:"而止"}。`
     +`象數面：評「<span class="w-${polCls}">${j.grade}</span>」，${strength}${plusPart}${minusPart}。`
     +(prim?`義理面：主讀「${prim.title}」，意謂${glosses.length?glossHtml:"以象取義"}。`:"")
-    +integ+kongNote+chainNote;
-  return {process,xiangshu,xiangshuHtml,yili,yiliHtml,advice,adviceHtml};
+    +integ+kongNote+chainNote+yqHtml;
+  return {process,xiangshu,xiangshuHtml,yili,yiliHtml,advice,adviceHtml,yingqi:yq};
 }
 
 /* ================= 朱子考變占（義理層選文） ================= */
@@ -670,7 +754,7 @@ function zhuXiRule(dec){
 const API={STEMS,BRANCH,ELEM,BR_ELEM,SIXGOD,KIN,HEXNAME,HEXNUM,NAJIA,PALACE,PALACE_ELEM,
   jdFromUTC,solarLongitude,equationOfTime,solveTerm,fourPillars,
   cast,castYarrowLine,castCoinLine,hexFromLines,branchesOf,decorate,
-  judge,zhuXiRule,narrate,YONG_MAP,palaceClosureCheck,wangShuai,kinOf,chongHeOf};
+  judge,zhuXiRule,narrate,yingQi,YONG_MAP,palaceClosureCheck,wangShuai,kinOf,chongHeOf};
 if(typeof module!=="undefined") module.exports=API;
 if(typeof window!=="undefined") window.LiuYao=API;
 
@@ -907,7 +991,7 @@ function show(pillars,castRes,dec,j,zx){
     return `<div class="reading${isP?" primary":""}"><div class="rt">${r.title}${isP&&zx.reads.length>1?" · 以此為主":""}</div><div class="tx">${r.body}</div></div>`;
   }).join("");
   /* 進程與白話 */
-  const nar=LY.narrate(dec,j,zx,$("cat").value,resolved);
+  const nar=LY.narrate(dec,j,zx,$("cat").value,resolved,pillars);
   const col=(hex,mask,cls,label)=>{
     let rows="";
     for(let i=5;i>=0;i--) rows+=`<div>${yaoHTML((hex>>i)&1,((mask>>i)&1)?cls:"")}</div>`;
