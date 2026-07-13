@@ -28,6 +28,8 @@ h1{font-size:1.5rem;font-weight:900;letter-spacing:.35em}
 .seg button{background:none;border:none;color:var(--moon-dim);cursor:pointer;padding:.45rem .9rem;font-family:var(--f-m);font-size:.74rem;letter-spacing:.12em}
 .seg button.on{background:#241c16;color:var(--cinnabar-soft)}
 select,input[type=number],input[type=datetime-local]{background:#241c16;color:var(--moon);border:1px solid var(--line);font-family:var(--f-m);font-size:.74rem;padding:.4rem .45rem;border-radius:3px}
+input[type=datetime-local]{cursor:pointer;padding:.5rem .55rem;border-color:var(--gold)}
+input[type=datetime-local]::-webkit-calendar-picker-indicator{filter:invert(1) sepia(1) saturate(3) hue-rotate(5deg);cursor:pointer;opacity:.9;font-size:1.1em}
 .btn{background:#241c16;border:1px solid var(--line);color:var(--moon);font-family:var(--f-m);font-size:.76rem;letter-spacing:.18em;padding:.5rem 1.2rem;border-radius:3px;cursor:pointer}
 .btn.primary{border-color:var(--cinnabar);color:var(--cinnabar-soft);font-size:.9rem;padding:.6rem 2.2rem}
 .btn.mini{padding:.3rem .7rem;font-size:.66rem}
@@ -115,15 +117,19 @@ footer{padding:1rem 1.4rem 2rem;border-top:1px solid var(--line);font-family:var
     <button class="btn mini" id="geoBtn">自動定位</button>
     <input type="number" id="lon" value="120.0" step="0.1" min="-180" max="180" style="width:88px" aria-label="經度">
     <span id="geoState" class="dim"></span>
-    <details style="margin:0">
-      <summary>指定時刻（排盤/覆核用）</summary>
-      <input type="datetime-local" id="dtOverride" style="margin-top:.4rem">
-      <button class="btn mini" id="dtClear">用當下</button>
+    <details style="margin:0" id="dtDetails">
+      <summary>指定時刻（重現舊卦的時間背景，非算時辰吉凶）</summary>
+      <div style="margin-top:.5rem;display:flex;gap:.6rem;align-items:center;flex-wrap:wrap">
+        <input type="datetime-local" id="dtOverride" aria-label="指定起卦時刻">
+        <button class="btn mini" id="dtClear">清除，用現在時間</button>
+        <span class="dim" style="font-size:.66rem">留空＝用現在時間；填入＝以該時刻的干支（年月日時、旬空月建）排卦。卦象仍為隨機起卦。</span>
+      </div>
     </details>
   </div>
-  <div style="margin-top:1rem;display:flex;gap:.8rem;align-items:center">
+  <div style="margin-top:1rem;display:flex;gap:.8rem;align-items:center;flex-wrap:wrap">
     <button class="btn primary" id="castBtn">起 卦</button>
     <button class="btn mini" id="skipBtn" style="display:none">直接出卦</button>
+    <span class="dim" id="effectiveTime" style="font-family:var(--f-m);font-size:.68rem"></span>
   </div>
   <div id="ritual" aria-live="polite"></div>
 </div>
@@ -892,7 +898,22 @@ $("geoBtn").onclick=()=>{
     _=>{$("geoState").textContent="定位失敗，請手動輸入";},
     {timeout:6000});
 };
-$("dtClear").onclick=()=>{$("dtOverride").value="";};
+function fmtEffective(){
+  const el=$("effectiveTime");
+  const v=$("dtOverride").value;
+  if(v){
+    const d=new Date(v);
+    el.innerHTML=`本次以指定時刻 <span style="color:var(--gold)">${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,"0")}/${String(d.getDate()).padStart(2,"0")} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}</span> 起卦`;
+  }else{
+    const n=new Date();
+    el.innerHTML=`本次以現在時間 <span style="color:var(--gold)">${n.getFullYear()}/${String(n.getMonth()+1).padStart(2,"0")}/${String(n.getDate()).padStart(2,"0")} ${String(n.getHours()).padStart(2,"0")}:${String(n.getMinutes()).padStart(2,"0")}</span> 起卦`;
+  }
+}
+$("dtClear").onclick=()=>{$("dtOverride").value="";fmtEffective();};
+$("dtOverride").addEventListener("input",fmtEffective);
+$("dtDetails").addEventListener("toggle",fmtEffective);
+setInterval(()=>{ if(!$("dtOverride").value) fmtEffective(); },30000);
+fmtEffective();
 
 /* 起卦主流程：計算即時完成，儀式僅為揭示節奏 */
 let revealTimer=null;
