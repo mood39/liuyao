@@ -81,11 +81,10 @@ footer{padding:1rem 1.4rem 2rem;border-top:1px solid var(--line);font-family:var
 .lkText{font-size:1.02rem;line-height:2;letter-spacing:.04em}
 .lkText.sm{font-size:.92rem;color:#cfc3ae}
 .lkGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:0 1.4rem}
-.kbzLine{font-family:var(--f-d);font-size:.94rem;line-height:2;padding-left:.9rem;border-left:2px solid var(--line)}
-.kbzLine.hit{border-left-color:var(--cinnabar);color:var(--moon)}
 td.yaoTitle{color:var(--gold);font-family:var(--f-m);font-size:.72rem;white-space:nowrap;vertical-align:top;width:4.5em}
 td.yaoBody{font-family:var(--f-d);font-size:.95rem;line-height:1.9;white-space:normal}
 td.yaoBody .xx{display:block;color:var(--moon-dim);font-size:.82rem;margin-top:.2rem}
+td.yaoBody .yp{display:block;color:var(--gold);font-size:.84rem;margin-top:.15rem}
 .plain{position:relative;font-size:.92rem;line-height:2;color:var(--moon);
   background:#241b13;border:1px solid #3a2d20;border-left:3px solid var(--gold);
   border-radius:3px;margin-top:.8rem;padding:.9rem .9rem .55rem}
@@ -230,12 +229,6 @@ td.yaoBody .xx{display:block;color:var(--moon-dim);font-size:.82rem;margin-top:.
     <table class="pan" style="table-layout:fixed"><tbody id="lkYao"></tbody></table>
   </div>
 
-  <div class="card">
-    <div class="stitle">朱 子 考 變 占 · 原文</div>
-    <div class="dim" style="font-family:var(--f-m);font-size:.66rem;margin-bottom:.5rem" id="lkKbzSrc"></div>
-    <div id="lkKbz"></div>
-    <div class="plain" id="lkKbzNote"></div>
-  </div>
 </div>
 </div>
 
@@ -768,9 +761,12 @@ function narrate(dec,j,zx,category,reads,pillars){
   }
   const glosses=found.map(k=>YL_GLOSS[k]);
   const ylPol=found.length?YL_POL[found[0]]:0;
-  const yili=glosses.length?glosses.join("、")+"。":"以象取義。";
+  const pl=(prim&&prim.plain)?prim.plain:"";           /* 選文對應之逐爻/卦白話 */
   const glossHtml=glosses.map((g,i)=>`<span class="w-${YL_POL[found[i]]>0?"ji":"xiong"}">${g}</span>`).join("、");
-  const yiliHtml=glosses.length?glossHtml+"。":"以象取義。";
+  const yili=pl?(glosses.length?glosses.join("、")+"——"+pl:pl)
+             :(glosses.length?glosses.join("、")+"。":"以象取義。");
+  const yiliHtml=pl?(glosses.length?glossHtml+"——"+pl:pl)
+                 :(glosses.length?glossHtml+"。":"以象取義。");
   /* 建議：象數義理整合（≤500字） */
   const strength=j.score>=2?"助多阻少"
     :xsPol>0?"略見順勢"
@@ -791,7 +787,7 @@ function narrate(dec,j,zx,category,reads,pillars){
   const minusPart=minusT.length?`，阻力在${minusT.slice(0,2).join("、")}`:"";
   let advice=`此課問${category}，局由「${dec.name}」${mv.length?`趨「${dec.zhiName}」`:"而止"}。`
     +`象數面：評「${j.grade}」，${strength}${plusPart}${minusPart}。`
-    +(prim?`義理面：主讀「${prim.title}」，意謂${glosses.length?glosses.join("、"):"以象取義"}。`:"")
+    +(prim?`義理面：主讀「${prim.title}」——${pl||(glosses.length?glosses.join("、")+"。":"以象取義。")}`:"")
     +integ+kongNote+chainNote;
   let yq=null;
   if(pillars&&j.yong){ yq=yingQi(dec,pillars,j);
@@ -800,7 +796,7 @@ function narrate(dec,j,zx,category,reads,pillars){
   const yqHtml=(yq&&yq.near&&yq.near!=="未定")?`應期：${yq.rule}，近應<span class="w-ji">${yq.near}</span>。`:"";
   const adviceHtml=`此課問<span class="cat">${category}</span>，局由「${dec.name}」${mv.length?`趨「${dec.zhiName}」`:"而止"}。`
     +`象數面：評「<span class="w-${polCls}">${j.grade}</span>」，${strength}${plusPart}${minusPart}。`
-    +(prim?`義理面：主讀「${prim.title}」，意謂${glosses.length?glossHtml:"以象取義"}。`:"")
+    +(prim?`義理面：主讀「${prim.title}」——${pl?(glosses.length?glossHtml+"——"+pl:pl):(glosses.length?glossHtml+"。":"以象取義。")}`:"")
     +integ+kongNote+chainNote+yqHtml;
   return {process,xiangshu,xiangshuHtml,yili,yiliHtml,advice,adviceHtml,yingqi:yq};
 }
@@ -1215,6 +1211,75 @@ const SHIYI = {
  xiaoxiang:["濡其尾，亦不知極也。","九二貞吉，中以行正也。","未濟征凶，位不當也。","貞吉悔亡，志行也。","君子之光，其暉吉也。","飲酒濡首，亦不知節也。"],
  plain:"火在水上，事未成之象。六爻皆不當位，象徵未完成、進行中。然《易》終於未濟——事无終了，一成即是新的開始。"}
 };
+const YAOPLAIN={
+1:["潛藏勿動，時機未至。","嶄露頭角，宜見貴人。","終日勤惕，雖危無咎。","可進可退，審時而動。","大展長才，居高得位。","高亢過極，盛極有悔。"],
+2:["霜降知冰，見微知著。","正直寬厚，自然順利。","含蓄才華，待時而發。","謹言慎行，不求有功但求無過。","謙居尊位，大吉。","陰盛抗陽，兩敗俱傷。"],
+3:["徘徊難進，守正立輔。","進退兩難，堅守久後乃成。","無嚮導而入林，不如放棄。","求助而往，吉。","恩澤難施，小事可為大事凶。","困極無援，泣血不止。"],
+4:["啟蒙須立規矩，過嚴則吝。","包容蒙昧，可承家業。","所遇非人，勿與結合。","困於蒙昧，孤陋致吝。","虛心受教如童蒙，吉。","治蒙宜防禦不宜強攻。"],
+5:["遠險而待，持之以恆無咎。","近險有口舌之擾，終吉。","臨險招寇，敬慎可免敗。","身陷險境，順勢脫出。","安然飲食待時，守正吉。","意外之客三人來，敬之終吉。"],
+6:["爭端初起，不糾纏則終吉。","力不敵而退避，保身無災。","安守舊業，不爭終吉。","回心轉意，安分守正吉。","遇公正裁決，大吉。","以訟得賞，終將被奪。"],
+7:["出兵首重紀律，失律則凶。","居中掌軍受寵，王命三錫。","指揮不當，載屍而歸凶。","暫退駐紮，未失常法無咎。","任長者掛帥吉，用非其人凶。","論功行賞開國承家，勿用小人。"],
+8:["誠信相親，終有意外之吉。","發自內心親附，守正吉。","所親非人，可悲可傷。","向外親附賢者，守正吉。","光明正大相親，來去自由吉。","親比而無首領，凶。"],
+9:["返回正道，何咎之有。","被牽引而返，居中不失。","車輻脫落，夫妻反目。","誠信化險，憂懼消散。","誠信繫聯，與鄰共富。","功成宜止，婦危君子征凶。"],
+10:["樸素獨行，無咎。","坦然行路，恬淡守正吉。","力不足而強行，招凶。","履危知懼，戒慎終吉。","剛決而行，雖正亦危。","回顧所行而察吉凶，善終大吉。"],
+11:["拔茅連茹，與同志共進吉。","包容大度，得行中道。","無平不陂無往不復，艱貞無咎。","翩然下交，不恃富而以誠。","謙尊下嫁，大福元吉。","城傾於隍，泰極而否勿用師。"],
+12:["同類相守，守正吉亨。","小人包容則吉，大人否而後亨。","包藏羞愧，位不當也。","奉命行事無咎，同伴共福。","居安思危，繫於苞桑則固。","否極而傾，先否後喜。"],
+13:["出門結交天下，無咎。","只親宗族，狹隘致吝。","伏兵設防，三年不敢興。","乘牆欲攻，困而知返則吉。","先痛哭後歡笑，大軍會師相遇。","郊野同人，志未得而無悔。"],
+14:["不涉禍害，艱守則無咎。","大車載重，任重可行無咎。","公侯獻禮天子，小人不堪此任。","不恃盛勢自斂，無咎。","誠信交往，威望自生吉。","自天祐之，吉無不利。"],
+15:["謙而又謙，可涉大川吉。","謙德有聲於外，守正吉。","有功而謙，君子善終吉。","發揮謙德，無不利。","不恃富而以鄰，可用征伐。","謙名在外，宜征邑國。"],
+16:["得寵而自鳴得意，凶。","耿介如石，見機而作守正吉。","諂上而逸樂生悔，遲則更悔。","眾樂所由，大有所得勿疑。","久病而不死，貞疾恆存。","沉溺逸樂至昏，速改則無咎。"],
+17:["主事有變，出門交往有功。","繫於小子，失去丈夫。","繫於丈夫，有求而得利居貞。","隨而有獲雖凶，誠信明道無咎。","誠信於善美，吉。","拘繫維縛，誠意至極王用亨。"],
+18:["承父治弊，有子則父無咎。","治母之弊，不可過於剛直。","治父之弊，小有悔無大咎。","寬容積弊不治，往見吝。","承父治弊，以德獲譽。","不事王侯，高尚其志。"],
+19:["感化而臨，守正吉。","感化而臨，吉無不利。","甜言而臨無所利，知憂而改無咎。","親身至臨，無咎。","睿智統臨，大君之宜吉。","敦厚而臨，吉無咎。"],
+20:["孩童之見，小人無咎君子吝。","門縫窺視，僅利女子之貞。","省察自身作為，知所進退。","觀國之光輝，宜為王之貴賓。","反觀自省其生，君子無咎。","被天下所觀瞻，戒慎則無咎。"],
+21:["初犯小懲，滅趾而無咎。","懲惡乘剛，噬膚滅鼻無咎。","治舊惡遇怨毒，小吝無咎。","啃硬骨而得金矢，艱貞吉。","斷獄得其實情，貞厲無咎。","惡積罪大不可解，何校滅耳凶。"],
+22:["安步當車，捨華求實。","修飾鬚眉，附麗於上而動。","文飾潤澤，永守正則吉。","白馬翩翩而來，求婚非寇。","束帛雖薄，儉樸終吉。","白賁無飾，返璞歸真無咎。"],
+23:["床足被剝，凶兆初現。","剝及床身，禍將及身凶。","眾陰中獨應於陽，剝而無咎。","剝及肌膚，災禍切身凶。","率眾如貫魚而歸順，無不利。","碩果僅存，君子得輿小人剝廬。"],
+24:["迷途未遠即返，修身大吉。","從善而復，吉。","屢失屢復，危而終無咎。","居中獨復，從道而行。","敦厚而復，自省無悔。","執迷不復，凶災連年。"],
+25:["不妄而往，得志吉。","不謀其利而耕耘，自然有得。","無妄之災，如牛被路人牽走。","守正自持，本分無咎。","無妄之疾，勿藥自癒。","時窮而妄行，有災無利。"],
+26:["前有危險，止而不進為利。","車輹脫落，主動停止無尤。","良馬馳逐，艱貞習防利往。","童牛加牿，防患未然大吉。","去勢之豬，制其根本吉。","何等通天大道，暢行無阻。"],
+27:["捨己靈龜而羨人食，凶。","反常向下求養，征凶。","悖逆養道，十年勿用。","虎視眈眈向下求養，無咎。","安居守正，不可涉大川。","天下由之而養，任重厲而終吉。"],
+28:["白茅墊物，敬慎之至無咎。","枯楊生芽，老夫得女妻無不利。","棟樑彎曲，無可輔救凶。","棟樑隆起，吉而別有他吝。","枯楊開花，榮景難久。","涉水滅頂雖凶，義無可咎。"],
+29:["重險入穴，失道凶。","身在險中，求小得。","進退皆險，暫勿行動。","簡樸誠敬自牖納約，終無咎。","險未盈滿，將平無咎。","縛困叢棘，三歲不得凶。"],
+30:["起步錯亂，敬慎則無咎。","黃離中庸之明，大吉。","日暮之明，不歌則老而嗟凶。","來勢洶洶如焚，無所容身。","憂泣自省，吉。","王者出征，斬首獲醜無咎。"],
+31:["感於拇指，微動未行。","感於小腿，妄動凶靜居吉。","感於大腿，盲從致吝。","心思憧憧往來，貞吉悔亡。","感於背脊，無悔。","感於口舌，徒逞口說。"],
+32:["求深太急，浚恆致凶。","守中持恆，悔亡。","不恆其德，蒙羞致吝。","久居非其位，田無所獲。","恆守其德，婦人吉夫子凶。","振動不安於上，恆而無功凶。"],
+33:["退避居後有危，勿再前往。","黃牛之革繫之，堅志難移。","繫戀而難退有疾，畜臣妾可。","心好而能退，君子吉小人否。","嘉美之退，守正吉。","遠走高飛從容退，無所不利。"],
+34:["壯於腳趾，冒進必凶。","守正而吉，以其居中。","小人恃力，君子不為，羝羊觸藩。","藩籬已決不困，壯於大車之輹。","失羊於場圃，無悔。","進退兩難之羊，知艱則吉。"],
+35:["進而受挫，守正寬裕無咎。","進而憂愁，終受王母大福。","眾人信允，悔亡。","如鼫鼠竊位而進，貞厲。","得失勿恤，前往有慶。","晉其角維用伐邑，厲吉貞吝。"],
+36:["斂翼而行，君子三日不食。","傷於左股，用壯馬拯救吉。","南狩獲其大首，不可急於正。","入於左腹，獲悉內情而出。","如箕子之晦藏，利守貞。","不明而晦，先登於天後入於地。"],
+37:["防閑於家道之初，悔乃亡。","無所擅專，主持中饋守正吉。","治家過嚴猶吉，嘻笑失節終吝。","富家，大吉。","王者以愛齊家，勿恤吉。","誠信而威嚴，反身自治終吉。"],
+38:["喪馬勿逐自復，見惡人以避咎。","巷中遇主，未失其道無咎。","車曳牛掣天且劓，無初有終。","孤而遇元夫，交誠無咎。","宗親噬膚而深入，往有何咎。","疑極見鬼一車，遇雨群疑亡則吉。"],
+39:["往則遇難，歸來得譽宜待。","王臣屢屢犯難，非為己身。","往險而歸返，內心自喜。","往難來連，當位而實。","大難之中，朋友來助。","往難來成大功，利見大人。"],
+40:["難既解，靜守無咎。","田獲三狐得黃矢，中道貞吉。","負物而乘車，招寇自取貞吝。","解去拇指之繫，朋友誠信而至。","君子有解則吉，小人自退。","射隼於高墉之上，一舉解悖。"],
+41:["事畢速往助人，酌情減損無咎。","守正不自損，可以益上。","三人同行則損一人，一人行則得友。","減損其疾，速而有喜無咎。","受益十朋之龜弗克違，大吉。","不損下而益之，得臣無家。"],
+42:["利用作大事，元吉無咎。","受益十朋之龜，永貞吉。","凶事中受益無咎，誠信中行。","中行告公而從，利用遷國。","惠心誠信，勿問元吉。","無人益之或擊之，立心勿恆凶。"],
+43:["壯於前趾，不勝而往為咎。","惕號戒備，暮夜有兵勿憂。","剛決見於面招凶，君子獨行遇雨無咎。","臀無膚行趑趄，牽羊悔亡言不信。","莧陸夬夬果決，中行無咎。","無號哭之聲，終有凶。"],
+44:["繫於金柅，守正吉，往見凶。","廚中有魚無咎，不宜宴賓。","臀無膚行趑趄，厲無大咎。","包中無魚失民，起而致凶。","以杞葉包瓜，含章有隕自天。","遇其角，吝而無咎。"],
+45:["誠信不終乃亂乃聚，一呼即笑勿憂。","受引而聚吉無咎，薄祭亦誠。","聚而嗟嘆無所利，往無咎小吝。","大吉方能無咎。","聚有其位匪孚，元永貞悔亡。","嘆息涕泣，未安於上無咎。"],
+46:["眾所信允而升，大吉。","誠信則薄祭亦可，無咎。","升入空邑，暢行無疑。","王用亨於岐山，順事吉無咎。","守正吉，循階而升。","昏昧而仍升，利於不息之貞。"],
+47:["困於株木入幽谷，三歲不見。","困於酒食，朱紱方來利祭祀。","據於蒺藜入宮不見妻，凶。","來之徐徐困於金車，吝有終。","劓刖之困，徐有喜悅利祭祀。","困於葛藟動悔有悔，覺而征吉。"],
+48:["井泥不可食，舊井無禽。","井谷射鮒，甕敝而漏。","井渫不食為我心惻，王明受福。","修井內壁，無咎。","寒泉清冽，中正可食。","井口勿蓋而常用，誠信大吉。"],
+49:["鞏用黃牛之革，時未可為。","巳日乃革之，行有嘉吉。","革言三就而後行，誠信乃成。","悔亡有孚改命，吉。","大人虎變，未占已有孚。","君子豹變小人革面，居貞吉。"],
+50:["鼎顛趾利出穢，因禍得福無咎。","鼎中有實，仇不能近吉。","鼎耳變革行塞，方雨虧悔終吉。","鼎折足覆公餗，凶。","鼎黃耳金鉉，中正利貞。","鼎玉鉉在上，大吉無不利。"],
+51:["震來惶恐而後笑言，恐懼致福吉。","震來危厲喪貝，勿逐七日自得。","震而蘇蘇不安，因震而行無眚。","震落泥中，未能奮起。","震往來皆厲，持中則大無喪。","震極索索視矍矍，戒懼則無咎。"],
+52:["止於腳趾，未失正，利永貞。","止於小腿不能拯上，心有不快。","強止於腰際，危而薰心。","止於其身，無咎。","止於口而言有序，悔亡。","敦厚而止，以厚道善終吉。"],
+53:["鴻漸於水岸，小子雖厲有言無咎。","鴻漸於磐石，飲食和樂吉。","鴻漸於高地，夫征不復婦孕不育凶。","鴻漸於木，或得平枝可棲無咎。","鴻漸於丘陵，婦三歲不孕終莫之勝吉。","鴻漸於雲路，其羽可為儀吉。"],
+54:["以娣陪嫁，跛能履征吉。","眇而能視，利幽人之貞。","以須等待而歸，反歸以娣。","歸期延遲，待時而行。","帝乙歸妹尚儉德，月幾望吉。","女承筐無實士刲羊無血，凶。"],
+55:["遇其配主，雖旬無咎往有尚。","豐蔀見斗往得疑疾，誠信自發吉。","豐沛見沫折其右肱，無咎。","豐蔀見斗，遇其夷主吉。","來章之美，有慶有譽吉。","豐屋自蔽闃其無人，三歲不覿凶。"],
+56:["旅中猥瑣計較，自取其災。","旅得安居懷資，有童僕之貞。","焚其客舍喪其童僕，貞厲。","旅於暫處得資斧，心有不快。","射雉一矢亡，終以譽命。","鳥焚其巢先笑後號咷，喪牛於易凶。"],
+57:["進退不定，利武人之貞以立志。","謙卑於床下用史巫，紛若吉無咎。","頻繁屈從而志窮，吝。","悔亡，田獲三品有功。","貞吉悔亡無不利，先庚後庚吉。","卑巽過甚居床下，喪資斧貞凶。"],
+58:["平和之悅，吉。","誠信之悅，吉悔亡。","主動來就而悅人，凶。","商度未寧，守介遠疾有喜。","信於剝害己者，有危。","引人為悅，未能光大。"],
+59:["用壯馬拯救於初，吉。","渙時奔就依託，悔亡。","渙散己私，無悔。","渙散朋黨而大公，元吉。","渙發號令如汗，王居無咎。","渙去其血遠離傷害，無咎。"],
+60:["知通塞而不出戶庭，無咎。","當出而不出門庭，失時凶。","不知節制而後嗟嘆，無所歸咎。","安然守節，亨通。","甘美之節居位中，吉往有尚。","苦節太過，貞凶悔亡。"],
+61:["安守誠信則吉，他求則不安。","鶴鳴於陰其子和之，好爵共靡。","得敵而進退不定，或鼓或罷或泣或歌。","月幾望馬匹亡，絕類而上無咎。","誠信繫聯天下，無咎。","虛聲登於天，貞凶。"],
+62:["飛鳥逆勢而上，凶。","過祖遇妣不及君遇臣，無咎。","不加防範，或遭戕害凶。","弗過而遇之無咎，往厲必戒。","密雲不雨自我西郊，公弋取彼在穴。","飛鳥遠離，是謂災眚凶。"],
+63:["曳其輪濡其尾，慎始無咎。","婦喪其茀勿逐，七日自得。","高宗伐鬼方三年乃克，小人勿用。","衣袽備漏，終日戒備。","東鄰殺牛不如西鄰薄祭，實受其福。","濡其首，危厲。"],
+64:["濡其尾而渡，不知量力吝。","曳其輪而不躁進，守正吉。","未濟而征凶，然利涉大川。","貞吉悔亡，震伐鬼方三年有賞。","君子之光有孚，吉。","飲酒自樂無咎，濡首則失節。"],
+};
+for(const k in YAOPLAIN) SHIYI[k].yp=YAOPLAIN[k];
+SHIYI[1].x9plain="群龍無首，剛而能柔，大吉。";
+SHIYI[2].x6plain="永守正固，以柔順而成其終。";
 /* 朱子《易學啟蒙・考變占第四》原文（節錄，述變占之法） */
 const KAOBIANZHAN = {
  source:"朱熹《易學啟蒙》卷四〈考變占第四〉",
@@ -1360,12 +1425,12 @@ function show(pillars,castRes,dec,j,zx){
   /* 義理 */
   $("zxRule").textContent=zx.rule;
   const resolved=zx.reads.map(r=>{
-    const num=LY.HEXNUM[r.hex], t=YJTEXT[num];
-    if(r.type==="卦辭") return {title:`${t.name} · 卦辭`, body:t.gua};
-    if(r.type==="用九") return {title:"乾 · 用九", body:t.x9};
-    if(r.type==="用六") return {title:"坤 · 用六", body:t.x6};
+    const num=LY.HEXNUM[r.hex], t=YJTEXT[num], s=window.SHIYI[num];
+    if(r.type==="卦辭") return {title:`${t.name} · 卦辭`, body:t.gua, plain:s?s.plain:""};
+    if(r.type==="用九") return {title:"乾 · 用九", body:t.x9, plain:s?s.x9plain:""};
+    if(r.type==="用六") return {title:"坤 · 用六", body:t.x6, plain:s?s.x6plain:""};
     const yang=(r.hex>>(r.line-1))&1;
-    return {title:`${t.name} · ${YAO_TITLE[yang?0:1][r.line-1]}`, body:t.yao[r.line-1]};
+    return {title:`${t.name} · ${YAO_TITLE[yang?0:1][r.line-1]}`, body:t.yao[r.line-1], plain:(s&&s.yp)?s.yp[r.line-1]:""};
   });
   $("readings").innerHTML=resolved.map((r,k)=>{
     const isP=zx.primary===k||zx.reads.length===1;
@@ -1388,13 +1453,9 @@ function show(pillars,castRes,dec,j,zx){
   /* 審計 */
   $("auditLog").textContent=["【曆法】",...pillars.steps,"","【起卦】",...castRes.log].join("\n");
   $("collate").textContent=window.YJ_COLLATE.join("\n");
-  /* 記錄本次動爻數，供查卦區標示考變占適用之則；若查卦已開啟則同步刷新 */
-  lastMvN=mvN;
-  if($("lookupSel").value!=="") renderLookup(parseInt($("lookupSel").value));
 }
 
 /* ===== 查卦（與起卦互不干擾，各自保持） ===== */
-let lastMvN=-1;
 const lkSel=$("lookupSel");
 (function buildLookup(){
   const arr=[];
@@ -1426,16 +1487,11 @@ function renderLookup(idx){
   for(let i=5;i>=0;i--){
     const yang=(idx>>i)&1;
     rows+=`<tr><td class="yaoTitle">${YAO_TITLE[yang?0:1][i]}</td>
-      <td class="yaoBody">${t.yao[i]}<span class="xx">象曰：${s.xiaoxiang[i]}</span></td></tr>`;
+      <td class="yaoBody">${t.yao[i]}<span class="xx">象曰：${s.xiaoxiang[i]}</span><span class="yp">白話：${s.yp[i]}</span></td></tr>`;
   }
-  if(num===1&&t.x9) rows+=`<tr><td class="yaoTitle">用九</td><td class="yaoBody">${t.x9}<span class="xx">象曰：${s.x9xiang}</span></td></tr>`;
-  if(num===2&&t.x6) rows+=`<tr><td class="yaoTitle">用六</td><td class="yaoBody">${t.x6}<span class="xx">象曰：${s.x6xiang}</span></td></tr>`;
+  if(num===1&&t.x9) rows+=`<tr><td class="yaoTitle">用九</td><td class="yaoBody">${t.x9}<span class="xx">象曰：${s.x9xiang}</span><span class="yp">白話：${s.x9plain}</span></td></tr>`;
+  if(num===2&&t.x6) rows+=`<tr><td class="yaoTitle">用六</td><td class="yaoBody">${t.x6}<span class="xx">象曰：${s.x6xiang}</span><span class="yp">白話：${s.x6plain}</span></td></tr>`;
   $("lkYao").innerHTML=rows;
-  const K=window.KAOBIANZHAN;
-  $("lkKbzSrc").textContent=K.source;
-  $("lkKbz").innerHTML=K.text.map((line,i)=>
-    `<div class="kbzLine${i===lastMvN?" hit":""}">${line}${i===lastMvN?'　<span style="color:var(--cinnabar-soft);font-family:var(--f-m);font-size:.66rem">← 本次起卦適用</span>':""}</div>`).join("");
-  $("lkKbzNote").textContent=K.note;
 }
 lkSel.onchange=()=>{ const v=lkSel.value; if(v==="") $("lookupResult").style.display="none"; else renderLookup(parseInt(v)); };
 $("lookupClear").onclick=()=>{ lkSel.value=""; $("lookupResult").style.display="none"; };
